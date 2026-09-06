@@ -45,6 +45,12 @@ h1 span { color: var(--accent); }
 .control-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 25px; }
 .control-heading h2 { font-size: 15px; font-weight: 650; margin: 0; letter-spacing: -.4px; }
 .flavor-note { font-size: 10px; color: #9c878d; }
+.shapes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; padding: 0; margin: 0 0 22px; border: 0; }
+.shapes legend { padding: 0; margin-bottom: 10px; color: var(--muted); font-size: 11px; }
+.shape { display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 42px; padding: 9px 6px; border: 1px solid #e8dedd; border-radius: 10px; background: transparent; font-size: 10px; font-weight: 550; }
+.shape svg { width: 20px; height: 22px; stroke: currentColor; stroke-width: 1.25; stroke-linecap: round; stroke-linejoin: round; }
+.shape:hover { background: #efe5e5; }
+.shape.is-active { border-color: var(--accent); background: var(--accent-soft); color: var(--ink); }
 .flavors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 0 0 26px; border: 0; padding: 0; gap: 7px; }
 .flavors legend { padding: 0; margin: 0 0 11px; font-size: 11px; color: var(--muted); }
 .flavor { border: 1px solid transparent; border-radius: 24px; background: #f4efed; padding: 8px 10px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-size: 10px; font-weight: 500; white-space: nowrap; }
@@ -111,7 +117,7 @@ input[type='range']::-moz-range-thumb { width: 8px; height: 8px; border-radius: 
   .interaction-hint { left: 5%; bottom: 115px; }
 }
 @media (max-width: 700px) {
-  #app { min-height: 990px; height: 100svh; }
+  #app { min-height: 1080px; height: 100svh; }
   .header { left: 23px; right: 23px; top: 23px; }
   .wordmark { font-size: 10px; gap: 7px; }
   .wordmark svg { width: 24px; height: 24px; }
@@ -122,13 +128,14 @@ input[type='range']::-moz-range-thumb { width: 8px; height: 8px; border-radius: 
   .intro p { font-size: 13px; line-height: 1.6; margin-left: 3px; }
   .controls { width: calc(100% - 40px); max-width: 400px; right: 50%; transform: translateX(50%); bottom: 64px; padding: 21px 23px; }
   .control-heading { margin-bottom: 18px; }
+  .shape { min-height: 44px; font-size: 11px; }
   .flavors { margin-bottom: 22px; }
   .flavor { flex: 1; padding: 10px 8px; font-size: 11px; }
   .flavors legend { margin-bottom: 10px; }
   .slider-control { margin-bottom: 20px; }
   .bounce-control { margin-bottom: 21px; }
   .range-captions { display: none; }
-  .interaction-hint { top: 490px; bottom: auto; left: 50%; transform: translateX(-50%); white-space: nowrap; gap: 9px; }
+  .interaction-hint { top: 510px; bottom: auto; left: 50%; transform: translateX(-50%); white-space: nowrap; gap: 9px; }
   .interaction-hint > svg { width: 21px; height: 25px; }
   .interaction-hint strong { font-size: 11px; }
   .interaction-hint p { display: none; }

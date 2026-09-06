@@ -4,10 +4,12 @@ import { attribute, color, float, fwidth, mix, positionWorld, smoothstep, unifor
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RectAreaLightTexturesLib } from 'three/addons/lights/RectAreaLightTexturesLib.js';
 import { createMoldGeometry } from './mold';
+import { BEAR_SIZE, createBearGeometry } from './bear';
 import { bindSkin, deformSkin, JELLY_SIZE, JellyPhysics } from './physics';
 import type { Point } from './physics';
 
 type Flavor = 'raspberry' | 'peach' | 'mint' | 'rainbow';
+type JellyShape = 'mold' | 'bear';
 const flavors: Record<Flavor, { color: string; absorption: string; accent: string; tint: string }> = {
   raspberry: { color: '#fff0fa', absorption: '#d81a84', accent: '#bc4868', tint: '#f9e9ed' },
   peach: { color: '#fff7ee', absorption: '#ed7f2c', accent: '#b57540', tint: '#f8edde' },
@@ -29,12 +31,13 @@ const squishInput = element<HTMLInputElement>('squish');
 const bounceInput = element<HTMLInputElement>('bounce');
 const slowInput = element<HTMLInputElement>('slow');
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-const physics = new JellyPhysics();
+let physics = new JellyPhysics();
 let paused = reducedMotion.matches;
 let dragging = false;
 let dragDistance = 0;
 let pointerId: number | null = null;
 let activeFlavor: Flavor = 'raspberry';
+let activeShape: JellyShape = 'mold';
 let ready = false;
 let accumulator = 0;
 let disposed = false;
@@ -75,9 +78,9 @@ orbit.enabled = false;
 orbit.update();
 orbit.saveState();
 
-const geometry = createMoldGeometry();
-const position = geometry.getAttribute('position') as THREE.BufferAttribute;
-const binding = bindSkin(position.array as Float32Array, physics);
+let geometry = createMoldGeometry();
+let position = geometry.getAttribute('position') as THREE.BufferAttribute;
+let binding = bindSkin(position.array as Float32Array, physics);
 const jellyMaterial = new THREE.MeshPhysicalNodeMaterial({
   color: flavors.raspberry.color,
   metalness: 0,
@@ -121,15 +124,26 @@ function random(): number {
   seed = (seed * 1664525 + 1013904223) >>> 0;
   return seed / 4294967296;
 }
-for (let i = 0; i < bubbleCount; i++) {
-  const angle = random() * Math.PI * 2;
-  const radius = 0.94 + (random() - 0.5) * 0.4;
-  bubbleCenters[i * 3] = Math.cos(angle) * radius;
-  bubbleCenters[i * 3 + 1] = (random() - 0.5) * JELLY_SIZE[1] * 0.73;
-  bubbleCenters[i * 3 + 2] = Math.sin(angle) * radius;
-  bubbleRadii[i] = 0.007 + random() * 0.013;
+function placeBubbles(): void {
+  seed = 413;
+  for (let i = 0; i < bubbleCount; i++) {
+    if (activeShape === 'bear') {
+      // Keep inclusions well inside the belly, away from the gaps between paws.
+      bubbleCenters[i * 3] = (random() - 0.5) * 0.65;
+      bubbleCenters[i * 3 + 1] = -0.45 + (random() - 0.5) * 0.75;
+      bubbleCenters[i * 3 + 2] = -0.1 + (random() - 0.5) * 0.32;
+    } else {
+      const angle = random() * Math.PI * 2;
+      const radius = 0.94 + (random() - 0.5) * 0.4;
+      bubbleCenters[i * 3] = Math.cos(angle) * radius;
+      bubbleCenters[i * 3 + 1] = (random() - 0.5) * JELLY_SIZE[1] * 0.73;
+      bubbleCenters[i * 3 + 2] = Math.sin(angle) * radius;
+    }
+    bubbleRadii[i] = 0.007 + random() * 0.013;
+  }
 }
-const bubbleBinding = bindSkin(bubbleCenters, physics);
+placeBubbles();
+let bubbleBinding = bindSkin(bubbleCenters, physics);
 const bubblePositions = new Float32Array(bubbleCenters.length);
 const bubbles = new THREE.InstancedMesh(
   new THREE.SphereGeometry(1, 10, 8),
@@ -215,7 +229,9 @@ function resize(): void {
   renderer.setSize(width, height);
   camera.aspect = width / height;
   camera.zoom = mobile ? Math.min(0.55, width / 820) : width < 1000 ? 0.71 : 0.83;
-  camera.setViewOffset(width, height, mobile ? 0 : width * 0.065, mobile ? height / 2 - 350 : -height * 0.015, width, height);
+  if (activeShape === 'bear') camera.zoom *= mobile ? 0.76 : 0.95;
+  const mobileCenter = activeShape === 'bear' ? 367 : 350;
+  camera.setViewOffset(width, height, mobile ? 0 : width * 0.065, mobile ? height / 2 - mobileCenter : -height * 0.015, width, height);
   camera.updateProjectionMatrix();
 }
 const resizeObserver = new ResizeObserver(resize);
@@ -333,6 +349,43 @@ function setFlavor(flavor: Flavor, animate = true): void {
   if (ready && animate && !paused && !reducedMotion.matches) physics.nudge();
 }
 
+function setShape(shape: JellyShape): void {
+  if (!ready || shape === activeShape) return;
+  endDrag();
+  const nextGeometry = shape === 'bear' ? createBearGeometry() : createMoldGeometry();
+  activeShape = shape;
+  physics = new JellyPhysics(shape === 'bear' ? BEAR_SIZE : JELLY_SIZE);
+  syncSliders();
+  accumulator = 0;
+  const previousGeometry = geometry;
+  geometry = nextGeometry;
+  position = geometry.getAttribute('position') as THREE.BufferAttribute;
+  binding = bindSkin(position.array as Float32Array, physics);
+  jelly.geometry = geometry;
+  previousGeometry.dispose();
+  jellyMaterial.thickness = shape === 'bear' ? 0.95 : 1.1;
+  placeBubbles();
+  bubbleBinding = bindSkin(bubbleCenters, physics);
+  orbit.reset();
+  const cameraPosition: Point = shape === 'bear' ? [3, 3.1, 8.1] : [4.15, 4.4, 6.5];
+  camera.position.set(...cameraPosition);
+  target.set(0, shape === 'bear' ? 1.65 : 1.05, 0);
+  orbit.target.copy(target);
+  orbit.update();
+  resize();
+  orbit.saveState();
+  updateSkin();
+  for (const button of document.querySelectorAll<HTMLButtonElement>('[data-shape]')) {
+    const selected = button.dataset.shape === shape;
+    button.classList.toggle('is-active', selected);
+    button.setAttribute('aria-pressed', String(selected));
+  }
+  const label = shape === 'bear' ? 'gummy bear' : 'jelly mold';
+  container.setAttribute('aria-label', `Interactive three-dimensional ${label}. Drag to stretch it, or use the Give it a wobble button.`);
+  element('flavor-note').textContent = shape === 'bear' ? 'a little bear hug' : 'freshly wobbled';
+  element('announcement').textContent = `${shape === 'bear' ? 'Gummy bear' : 'Jelly mold'} selected. ${activeFlavor} flavor kept.`;
+}
+
 function syncPause(): void {
   pauseButton.textContent = paused ? 'Resume' : 'Pause';
   pauseButton.setAttribute('aria-pressed', String(paused));
@@ -342,6 +395,9 @@ function syncPause(): void {
 
 for (const button of document.querySelectorAll<HTMLButtonElement>('[data-flavor]')) {
   button.addEventListener('click', function chooseFlavor() { setFlavor(button.dataset.flavor as Flavor); });
+}
+for (const button of document.querySelectorAll<HTMLButtonElement>('[data-shape]')) {
+  button.addEventListener('click', function chooseShape() { setShape(button.dataset.shape as JellyShape); });
 }
 squishInput.addEventListener('input', syncSliders);
 bounceInput.addEventListener('input', syncSliders);
@@ -368,6 +424,7 @@ resetButton.addEventListener('click', function reset() {
   syncPause();
   setFlavor('raspberry', false);
   orbit.reset();
+  resize();
   updateSkin();
   element('announcement').textContent = 'Jelly and controls reset.';
 });
@@ -396,7 +453,7 @@ function showError(error: unknown): void {
   element('error').hidden = false;
   element('renderer-label').textContent = 'Graphics unavailable';
   element('status-dot').classList.remove('is-ready');
-  for (const button of [wobbleButton, resetButton, pauseButton]) button.disabled = true;
+  for (const button of [wobbleButton, resetButton, pauseButton, ...document.querySelectorAll<HTMLButtonElement>('[data-shape]')]) button.disabled = true;
 }
 
 async function start(): Promise<void> {
@@ -413,7 +470,7 @@ async function start(): Promise<void> {
   element('loading').hidden = true;
   element('renderer-label').textContent = 'isWebGPUBackend' in renderer.backend ? 'WebGPU' : 'WebGL 2';
   element('status-dot').classList.add('is-ready');
-  for (const button of [wobbleButton, resetButton, pauseButton]) button.disabled = false;
+  for (const button of [wobbleButton, resetButton, pauseButton, ...document.querySelectorAll<HTMLButtonElement>('[data-shape]')]) button.disabled = false;
   if (!reducedMotion.matches) physics.nudge();
 
   let lastTime = performance.now();
@@ -461,8 +518,9 @@ async function start(): Promise<void> {
   if (import.meta.env.DEV) {
     Object.assign(window, {
       __jelly: {
-        physics, renderer, camera, jelly,
-        get state() { return { paused, dragging, activeFlavor, ready, slow: slowInput.checked }; },
+        get physics() { return physics; },
+        renderer, camera, jelly,
+        get state() { return { paused, dragging, activeFlavor, activeShape, ready, slow: slowInput.checked }; },
       },
     });
   }

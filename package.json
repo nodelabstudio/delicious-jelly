@@ -8,7 +8,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "deploy": "npm run build && npx --yes --package=node@22 --package=wrangler@4.129.0 wrangler deploy",
-    "test": "node --import tsx --test src/physics.test.ts"
+    "test": "node --import tsx --test src/*.test.ts"
   },
   "dependencies": {
     "three": "0.185.1"

@@ -9,6 +9,7 @@ export const FLOOR = 0.06;
 
 /** A tetrahedral XPBD body: edge elasticity, volume preservation, and floor contact. */
 export class JellyPhysics {
+  readonly size: Point;
   readonly divisions = 5;
   readonly count = (this.divisions + 1) ** 3;
   readonly positions = new Float64Array(this.count * 3);
@@ -22,15 +23,16 @@ export class JellyPhysics {
   squishiness = 55;
   bounciness = 65;
 
-  constructor() {
+  constructor(size: Point = JELLY_SIZE) {
+    this.size = [...size];
     const n = this.divisions;
     for (let z = 0; z <= n; z++) {
       for (let y = 0; y <= n; y++) {
         for (let x = 0; x <= n; x++) {
           const i = this.index(x, y, z) * 3;
-          this.rest[i] = (x / n - 0.5) * JELLY_SIZE[0];
-          this.rest[i + 1] = y / n * JELLY_SIZE[1] + FLOOR;
-          this.rest[i + 2] = (z / n - 0.5) * JELLY_SIZE[2];
+          this.rest[i] = (x / n - 0.5) * this.size[0];
+          this.rest[i + 1] = y / n * this.size[1] + FLOOR;
+          this.rest[i + 2] = (z / n - 0.5) * this.size[2];
         }
       }
     }
@@ -91,7 +93,7 @@ export class JellyPhysics {
   nudge(): void {
     for (let i = 0; i < this.count; i++) {
       const k = i * 3;
-      const height = (this.rest[k + 1] - FLOOR) / JELLY_SIZE[1];
+      const height = (this.rest[k + 1] - FLOOR) / this.size[1];
       this.velocities[k] += (height - 0.3) * 2.1;
       this.velocities[k + 1] += 4.5 + Math.cos(this.rest[k] * 2) * 0.65;
       this.velocities[k + 2] += Math.sin(this.rest[k + 1] * 2.3) * 1.1;
@@ -293,9 +295,9 @@ export function bindSkin(vertices: Float32Array, physics: JellyPhysics): SkinBin
   const n = physics.divisions;
   for (let i = 0; i < count; i++) {
     const coordinates = [
-      (vertices[i * 3] / JELLY_SIZE[0] + 0.5) * n,
-      (vertices[i * 3 + 1] / JELLY_SIZE[1] + 0.5) * n,
-      (vertices[i * 3 + 2] / JELLY_SIZE[2] + 0.5) * n,
+      (vertices[i * 3] / physics.size[0] + 0.5) * n,
+      (vertices[i * 3 + 1] / physics.size[1] + 0.5) * n,
+      (vertices[i * 3 + 2] / physics.size[2] + 0.5) * n,
     ];
     const cell = coordinates.map(function floor(v) { return Math.max(0, Math.min(n - 1, Math.floor(v))); });
     const fraction = coordinates.map(function fraction(v, axis) { return Math.max(0, Math.min(1, v - cell[axis])); });
