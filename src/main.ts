@@ -5,16 +5,38 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RectAreaLightTexturesLib } from 'three/addons/lights/RectAreaLightTexturesLib.js';
 import { createMoldGeometry } from './mold';
 import { BEAR_SIZE, createBearGeometry } from './bear';
+import { CUBE_SIZE, createCubeGeometry } from './cube';
 import { bindSkin, deformSkin, JELLY_SIZE, JellyPhysics } from './physics';
 import type { Point } from './physics';
 
 type Flavor = 'raspberry' | 'peach' | 'mint' | 'rainbow';
-type JellyShape = 'mold' | 'bear';
+type JellyShape = 'mold' | 'bear' | 'cube';
 const flavors: Record<Flavor, { color: string; absorption: string; accent: string; tint: string }> = {
   raspberry: { color: '#fff0fa', absorption: '#d81a84', accent: '#bc4868', tint: '#f9e9ed' },
   peach: { color: '#fff7ee', absorption: '#ed7f2c', accent: '#b57540', tint: '#f8edde' },
   mint: { color: '#f0fff8', absorption: '#3d9f78', accent: '#508569', tint: '#e9f2ec' },
   rainbow: { color: '#fff3ef', absorption: '#ffffff', accent: '#9b597c', tint: '#f5e9f0' },
+};
+const shapes: Record<JellyShape, {
+  label: string; note: string; size: Point; createGeometry: () => THREE.BufferGeometry;
+  thickness: number; camera: Point; targetY: number;
+  mobileZoom: number; desktopZoom: number; mobileCenter: number;
+}> = {
+  mold: {
+    label: 'Jelly mold', note: 'freshly wobbled', size: JELLY_SIZE, createGeometry: createMoldGeometry,
+    thickness: 1.1, camera: [4.15, 4.4, 6.5], targetY: 1.05,
+    mobileZoom: 1, desktopZoom: 1, mobileCenter: 350,
+  },
+  bear: {
+    label: 'Gummy bear', note: 'a little bear hug', size: BEAR_SIZE, createGeometry: createBearGeometry,
+    thickness: 0.95, camera: [3, 3.1, 8.1], targetY: 1.65,
+    mobileZoom: 0.76, desktopZoom: 0.95, mobileCenter: 367,
+  },
+  cube: {
+    label: 'Jello cube', note: 'a perfect little bite', size: CUBE_SIZE, createGeometry: createCubeGeometry,
+    thickness: 1.65, camera: [4.15, 4.4, 6.5], targetY: 1.225,
+    mobileZoom: 0.83, desktopZoom: 0.95, mobileCenter: 365,
+  },
 };
 
 function element<T extends HTMLElement>(id: string): T {
@@ -46,8 +68,8 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color('#f7f0ec');
 scene.fog = new THREE.Fog('#f7f0ec', 12, 50);
 const camera = new THREE.PerspectiveCamera(37, 1, 0.1, 200);
-camera.position.set(4.15, 4.4, 6.5);
-const target = new THREE.Vector3(0, 1.05, 0);
+camera.position.set(...shapes.mold.camera);
+const target = new THREE.Vector3(0, shapes.mold.targetY, 0);
 camera.lookAt(target);
 
 const renderer = new THREE.WebGPURenderer({
@@ -87,7 +109,7 @@ const jellyMaterial = new THREE.MeshPhysicalNodeMaterial({
   roughness: 0.032,
   transmission: 1,
   // Optical path length approximates the width of the ring wall.
-  thickness: 1.1,
+  thickness: shapes.mold.thickness,
   ior: 1.39,
   attenuationColor: flavors.raspberry.absorption,
   attenuationDistance: 2.3,
@@ -132,6 +154,8 @@ function placeBubbles(): void {
       bubbleCenters[i * 3] = (random() - 0.5) * 0.65;
       bubbleCenters[i * 3 + 1] = -0.45 + (random() - 0.5) * 0.75;
       bubbleCenters[i * 3 + 2] = -0.1 + (random() - 0.5) * 0.32;
+    } else if (activeShape === 'cube') {
+      for (let axis = 0; axis < 3; axis++) bubbleCenters[i * 3 + axis] = (random() - 0.5) * CUBE_SIZE[axis] * 0.65;
     } else {
       const angle = random() * Math.PI * 2;
       const radius = 0.94 + (random() - 0.5) * 0.4;
@@ -229,9 +253,9 @@ function resize(): void {
   renderer.setSize(width, height);
   camera.aspect = width / height;
   camera.zoom = mobile ? Math.min(0.55, width / 820) : width < 1000 ? 0.71 : 0.83;
-  if (activeShape === 'bear') camera.zoom *= mobile ? 0.76 : 0.95;
-  const mobileCenter = activeShape === 'bear' ? 367 : 350;
-  camera.setViewOffset(width, height, mobile ? 0 : width * 0.065, mobile ? height / 2 - mobileCenter : -height * 0.015, width, height);
+  const shape = shapes[activeShape];
+  camera.zoom *= mobile ? shape.mobileZoom : shape.desktopZoom;
+  camera.setViewOffset(width, height, mobile ? 0 : width * 0.065, mobile ? height / 2 - shape.mobileCenter : -height * 0.015, width, height);
   camera.updateProjectionMatrix();
 }
 const resizeObserver = new ResizeObserver(resize);
@@ -352,9 +376,10 @@ function setFlavor(flavor: Flavor, animate = true): void {
 function setShape(shape: JellyShape): void {
   if (!ready || shape === activeShape) return;
   endDrag();
-  const nextGeometry = shape === 'bear' ? createBearGeometry() : createMoldGeometry();
+  const preset = shapes[shape];
+  const nextGeometry = preset.createGeometry();
   activeShape = shape;
-  physics = new JellyPhysics(shape === 'bear' ? BEAR_SIZE : JELLY_SIZE);
+  physics = new JellyPhysics(preset.size);
   syncSliders();
   accumulator = 0;
   const previousGeometry = geometry;
@@ -363,13 +388,12 @@ function setShape(shape: JellyShape): void {
   binding = bindSkin(position.array as Float32Array, physics);
   jelly.geometry = geometry;
   previousGeometry.dispose();
-  jellyMaterial.thickness = shape === 'bear' ? 0.95 : 1.1;
+  jellyMaterial.thickness = preset.thickness;
   placeBubbles();
   bubbleBinding = bindSkin(bubbleCenters, physics);
   orbit.reset();
-  const cameraPosition: Point = shape === 'bear' ? [3, 3.1, 8.1] : [4.15, 4.4, 6.5];
-  camera.position.set(...cameraPosition);
-  target.set(0, shape === 'bear' ? 1.65 : 1.05, 0);
+  camera.position.set(...preset.camera);
+  target.set(0, preset.targetY, 0);
   orbit.target.copy(target);
   orbit.update();
   resize();
@@ -380,10 +404,9 @@ function setShape(shape: JellyShape): void {
     button.classList.toggle('is-active', selected);
     button.setAttribute('aria-pressed', String(selected));
   }
-  const label = shape === 'bear' ? 'gummy bear' : 'jelly mold';
-  container.setAttribute('aria-label', `Interactive three-dimensional ${label}. Drag to stretch it, or use the Give it a wobble button.`);
-  element('flavor-note').textContent = shape === 'bear' ? 'a little bear hug' : 'freshly wobbled';
-  element('announcement').textContent = `${shape === 'bear' ? 'Gummy bear' : 'Jelly mold'} selected. ${activeFlavor} flavor kept.`;
+  container.setAttribute('aria-label', `Interactive three-dimensional ${preset.label.toLowerCase()}. Drag to stretch it, or use the Give it a wobble button.`);
+  element('flavor-note').textContent = preset.note;
+  element('announcement').textContent = `${preset.label} selected. ${activeFlavor} flavor kept.`;
 }
 
 function syncPause(): void {

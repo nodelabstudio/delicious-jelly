@@ -24,7 +24,7 @@ Wrangler publishes the static assets and manages the custom-domain association a
 
 ## Play
 
-- Switch between the classic jelly mold and a gummy bear. Your flavor, sliders, and motion settings carry over; switching shapes settles the new shape into its starting pose.
+- Switch between the classic jelly mold, a gummy bear, and a jello cube with softly rounded edges. Your flavor, sliders, and motion settings carry over; switching shapes settles the new shape into its starting pose.
 - Click or tap the jelly to poke it. Drag it to stretch, then release.
 - Drag the empty background to rotate the view.
 - Choose raspberry, peach, mint, or layered rainbow; adjust squishiness and bounciness.
@@ -36,6 +36,8 @@ Reduced-motion preferences start the simulation paused. Wobble or Resume starts 
 ## How it works
 
 `src/physics.ts` implements a CPU-based extended position-based dynamics (XPBD) deformation cage with 216 particles and 750 tetrahedra, sized for the selected shape. Edge constraints provide elasticity; signed-volume constraints resist collapse. Floor contact, internal damping, and a weighted grab constraint control motion. The closed, 16-flute ring mold in `src/mold.ts` follows the particles using trilinear skinning, and normals update with the shape. Its center opening is part of the surface geometry; the simulation uses the enclosing cage. `src/bear.ts` uses Three.js marching cubes to join rounded ears, head, belly, paws, and molded facial details into one closed surface, avoiding overlapping refractive shells. Rainbow bands use rest-space height so they stretch with either shape.
+
+`src/cube.ts` creates a rounded cube with subdivided faces so its broad sides can flex, not just its corners. Shared vertices keep its surface closed during deformation. All three shapes use the same material and rest-space rainbow layers, with shape-specific framing and approximate optical thickness.
 
 `src/main.ts` renders the result with Three.js `WebGPURenderer` and a physical node material: full transmission, refraction, colored absorption, and a smooth wet surface. Three rectangular softboxes provide warm key, cool fill, and rim lighting, with matching reflection cards in the studio environment. An aligned spotlight supplies a filtered, colored shadow of the deforming mold. The opaque floor shader includes the grid so it can appear in refraction. WebGPU is preferred; Three.js falls back to WebGL 2 when needed. Add `?renderer=webgl` to verify the fallback. The status indicator reports the actual active backend. Graphics acceleration is required; WebGPU requires a secure context (HTTPS or localhost).
 
