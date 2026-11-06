@@ -6,3 +6,5 @@ dist/
 .wrangler/
 .env*
 .dev.vars*
+AGENTS.md
+CLAUDE.md
