@@ -34,9 +34,6 @@ svg { flex-shrink: 0; }
 .header { position: absolute; top: 32px; left: 44px; right: 44px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .wordmark { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 550; letter-spacing: -.15px; }
 .wordmark svg { width: 28px; height: 28px; color: var(--accent); }
-.source-link { display: flex; align-items: center; gap: 14px; font-size: 12px; color: var(--muted); }
-.source-link:hover { color: var(--ink); }
-.source-link span { font-size: 18px; }
 .intro { position: absolute; left: 5.1%; top: 15.1%; pointer-events: none; }
 h1 { font-family: 'Fraunces', Georgia, serif; font-size: clamp(90px, 9.1vw, 144px); font-weight: 600; letter-spacing: -.085em; line-height: .94; margin: 0 0 26px; }
 h1 span { color: var(--accent); }
@@ -121,8 +118,6 @@ input[type='range']::-moz-range-thumb { width: 8px; height: 8px; border-radius: 
   .header { left: 23px; right: 23px; top: 23px; }
   .wordmark { font-size: 10px; gap: 7px; }
   .wordmark svg { width: 24px; height: 24px; }
-  .source-link { font-size: 10px; gap: 5px; }
-  .source-link span { font-size: 15px; }
   .intro { left: 27px; top: 99px; }
   h1 { font-size: 90px; margin-bottom: 15px; }
   .intro p { font-size: 13px; line-height: 1.6; margin-left: 3px; }

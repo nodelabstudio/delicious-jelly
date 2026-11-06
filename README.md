@@ -1,6 +1,6 @@
 # jelly.
 
-A small, tactile jelly playground inspired by [Scott's experiment](https://x.com/scottstts/status/2096008241104711698). Built with TypeScript, Three.js, and Vite.
+A small, tactile jelly playground. Built with TypeScript, Three.js, and Vite.
 
 ## Run
 
